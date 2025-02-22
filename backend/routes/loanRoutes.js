@@ -53,23 +53,23 @@ router.post("/loans/borrow", authMiddleware(["admin", "staff", "user"]), (req, r
 
 // ✅ API ดึงคำขอยืมที่รออนุมัติ
 router.get("/loans/pending", authMiddleware(["admin", "staff"]), (req, res) => {
-    console.log("📌 API /api/loans/pending called");
+    const query = `
+        SELECT loans.id, equipment.name AS equipment_name, users.username AS borrower_name,
+               loans.borrow_date, loans.status
+        FROM loans
+        JOIN users ON loans.user_id = users.id
+        JOIN equipment ON loans.equipment_id = equipment.id
+        WHERE loans.status = 'pending'
+    `;
 
-    db.query(
-        `SELECT loans.id, equipment.name AS equipment_name, users.username AS borrower_name, 
-               loans.borrow_date, loans.status 
-         FROM loans 
-         JOIN users ON loans.user_id = users.id
-         JOIN equipment ON loans.equipment_id = equipment.id
-         WHERE loans.status = 'pending'`,
-        (err, results) => {
-            if (err) {
-                console.error("❌ Database Query Error:", err);
-                return res.status(500).json({ error: err.message });
-            }
-            res.json(results);
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error("❌ Database Query Error:", err);
+            return res.status(500).json({ error: err.message });
         }
-    );
+        console.log("✅ Query Result:", results); // ✅ Debug Data
+        res.json(results);
+    });
 });
 
 
@@ -95,22 +95,29 @@ router.get("/loans/borrowed/:userId", authMiddleware(["admin", "staff", "user"])
 
 // ✅ API คืนอุปกรณ์ (เปลี่ยน `status` เป็น `"returned"`)
 router.put("/loans/return/:loanId", authMiddleware(["admin", "staff", "user"]), (req, res) => {
-    const { loanId } = req.params;
+    const loanId = req.params.id;
 
-    db.query(
-        "UPDATE loans SET status = 'returned', return_date = NOW() WHERE id = ? AND status = 'borrowed'",
-        [loanId],
-        (err, result) => {
-            if (err) {
-                console.error("❌ Database Query Error:", err);
-                return res.status(500).json({ error: err.message });
-            }
-            if (result.affectedRows === 0) {
-                return res.status(400).json({ message: "❌ ไม่สามารถคืนอุปกรณ์ได้" });
-            }
-            res.json({ message: "✅ คืนอุปกรณ์สำเร็จ!" });
-        }
-    );
+    const updateLoanQuery = `
+        UPDATE loans 
+        SET status = 'returned', return_date = NOW() 
+        WHERE id = ?
+    `;
+
+    db.query(updateLoanQuery, [loanId], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        // ✅ คืนของ → เปลี่ยน equipment เป็น available
+        const updateEquipmentQuery = `
+            UPDATE equipment 
+            SET status = 'available' 
+            WHERE id = (SELECT equipment_id FROM loans WHERE id = ?)
+        `;
+
+        db.query(updateEquipmentQuery, [loanId], (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "✅ อุปกรณ์ถูกคืนแล้ว!" });
+        });
+    });
 });
 
 router.post("/loans/borrow", authMiddleware(["admin", "staff", "user"]), (req, res) => {

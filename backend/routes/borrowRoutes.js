@@ -20,7 +20,7 @@ router.post("/", authMiddleware(["user", "staff"]), async (req, res) => {
                 [item.quantity, item.equipmentId, item.quantity]
             );
             await db.promise().query(
-                `INSERT INTO loans (user_id, equipment_id, quantity, borrow_date, status) VALUES (?, ?, ?, NOW(), 'borrowed')`,
+                `INSERT INTO loans (user_id, equipment_id, quantity, borrow_date, status) VALUES (?, ?, ?, NOW(), 'pending')`,
                 [userId, item.equipmentId, item.quantity]
             );
         }
