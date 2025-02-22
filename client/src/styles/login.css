@@ -1,11 +1,47 @@
+/* ✅ ตั้งค่าพื้นหลังเป็น Gradient */
 .login-container {
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
-    background-color: #f0f2f5;
+    
 }
 
-.ant-card {
+/* ✅ ออกแบบ Card ให้ดูโมเดิร์นขึ้น */
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.2);
+    background: #fff;
     text-align: center;
+}
+
+/* ✅ สไตล์ของ Title */
+.login-title {
+    color: #000dff;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+/* ✅ สไตล์ของ Subtitle */
+.login-subtitle {
+    font-size: 14px;
+    margin-bottom: 20px;
+    display: block;
+}
+
+/* ✅ สไตล์ปุ่ม Login */
+.login-button {
+    background-color: #000dff;
+    border: none;
+    height: 40px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background 0.3s ease;
+}
+
+.login-button:hover {
+    background-color: #6b73ff;
 }

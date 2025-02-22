@@ -37,7 +37,7 @@ function Sidebar({ collapsed }) {
             {
             key: '8',
             icon: <AntDesignOutlined />,
-            label: <Link to="/maintenance">ประวัติการซ่อม</Link>,
+            label: <Link to="/Category">จัดการหมวดหมู่</Link>,
         },
             {
             key: '9',

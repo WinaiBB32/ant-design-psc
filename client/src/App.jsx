@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EquipmentManagement from './pages/EquipmentManagement';
+import CategoryManagement from './pages/CategoryManagement';
 
 function App() {
     const [collapsed, setCollapsed] = useState(false);
@@ -36,7 +37,8 @@ function App() {
                             <Route path="/maintenance" element={<ProtectedRoute role="staff"><MaintenanceLogs /></ProtectedRoute>} />
                             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
                             <Route path="/Equipment" element={<ProtectedRoute><EquipmentManagement /></ProtectedRoute>} />
-                            <Route path="/users" element={<ProtectedRoute role="admin"><UserManagement /></ProtectedRoute>} />
+                            <Route path="/users" element={<ProtectedRoute role="admin"><UserManagement  /></ProtectedRoute>} />
+                            <Route path="/Category" element={<ProtectedRoute role="admin"><CategoryManagement  /></ProtectedRoute>} />
                             {!isLoginPage && <Route path="*" element={<NotFound collapsed={collapsed} />} />} {/* Route 404 */}
                     </Routes>
                 </Layout.Content>

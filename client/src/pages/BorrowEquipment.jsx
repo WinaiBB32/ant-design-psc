@@ -1,89 +1,107 @@
 import { useEffect, useState } from "react";
-import { Form, Select, Button, Table, message, Modal, Card } from "antd";
-import { getAvailableEquipment, requestBorrow, getUserLoans } from "../services/api";
-import { getRole } from "../services/auth";
+import axios from "axios";
+import { Table, Button, message, Card, Typography, Image, Spin, Tag } from "antd";
+import { CheckOutlined } from "@ant-design/icons";
+import "../styles/BorrowEquipment.css";
 
-function BorrowEquipment() {
-    const [form] = Form.useForm();
-    const [equipmentList, setEquipmentList] = useState([]);
-    const [userLoans, setUserLoans] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [modalVisible, setModalVisible] = useState(false);
-    const role = getRole();
-    const userId = 1; // สมมติว่า userId เป็น 1 คุณสามารถเปลี่ยนเป็นค่าที่ถูกต้องได้
+const { Title } = Typography;
 
-    useEffect(() => {
-        async function fetchData() {
-            const equipmentData = await getAvailableEquipment();
-            setEquipmentList(equipmentData);
-            const loansData = await getUserLoans(userId);
-            setUserLoans(loansData);
-        }
-        fetchData();
-    }, [userId]);
+const BorrowEquipment = () => {
+  const [equipment, setEquipment] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    async function handleBorrow(values) {
-        setLoading(true);
-        try {
-            await requestBorrow(values.equipmentId);
-            message.success("Borrow request submitted!");
-            form.resetFields();
-            setModalVisible(false);
-        } catch (error) {
-            message.error("Error submitting request.", error);
-        }
-        setLoading(false);
+  useEffect(() => {
+    fetchEquipment();
+  }, []);
+
+  const fetchEquipment = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get("http://localhost:3307/api/equipment");
+      setEquipment(response.data);
+    } catch (error) {
+      message.error("❌ ไม่สามารถโหลดข้อมูลอุปกรณ์ได้",error);
     }
+    setLoading(false);
+  };
 
-    const columns = [
-        { title: "Equipment Name", dataIndex: "equipment_name" },
-        { title: "Status", dataIndex: "status" },
-        { title: "Borrow Date", dataIndex: "borrow_date" },
-    ];
+  const handleBorrow = async (equipmentId) => {
+    try {
+      const userId = localStorage.getItem("userID");
+      const token = localStorage.getItem("token");
 
-    return (
-        <div>
-            <h2>Borrow Equipment</h2>
-            
-            {role === "user" && (
-                <Card>
-                    <Button type="primary" onClick={() => setModalVisible(true)}>
-                        Request Borrow
-                    </Button>
-                </Card>
-            )}
+      if (!userId || !token) {
+        message.warning("กรุณาเข้าสู่ระบบก่อนยืมอุปกรณ์");
+        return;
+      }
 
-            {/* Modal สำหรับขอยืมอุปกรณ์ */}
-            <Modal
-                title="Request Borrow"
-                visible={modalVisible}
-                onCancel={() => setModalVisible(false)}
-                footer={null}
-            >
-                <Form form={form} onFinish={handleBorrow} layout="vertical">
-                    <Form.Item name="equipmentId" label="Select Equipment" rules={[{ required: true }]}>
-                        <Select placeholder="Select Equipment">
-                            {equipmentList.map((item) => (
-                                <Select.Option key={item.id} value={item.id}>
-                                    {item.equipment_name}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" loading={loading} block>
-                            Submit Request
-                        </Button>
-                    </Form.Item>
-                </Form>
-            </Modal>
+      console.log("📌 Debug Token:", token);
+      console.log("📌 Debug userId:", userId);
 
-            {/* รายการอุปกรณ์ที่ผู้ใช้เคยยืม */}
-            <Card title="My Borrowed Equipment" style={{ marginTop: 20 }}>
-                <Table columns={columns} dataSource={userLoans} rowKey="id" pagination={{ pageSize: 5 }} />
-            </Card>
-        </div>
-    );
-}
+      const response = await axios.post(
+        "http://localhost:3307/api/loans/borrow",
+        { userId, equipmentId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      message.success(response.data.message);
+      fetchEquipment();
+    } catch (error) {
+      console.error("❌ [BORROW ERROR]:", error.response?.data || error.message);
+      message.error(error.response?.data?.message || "เกิดข้อผิดพลาดในการยืมอุปกรณ์");
+    }
+  };
+
+  const columns = [
+    {
+      title: "รูปภาพ",
+      dataIndex: "image_url",
+      key: "image_url",
+      render: (image) => <Image width={50} src={image} alt="Equipment" />,
+    },
+    {
+      title: "ชื่ออุปกรณ์",
+      dataIndex: "name",
+      key: "name",
+    },
+    {
+      title: "จำนวนที่เหลือ",
+      dataIndex: "quantity",
+      key: "quantity",
+      render: (quantity) => <strong>{quantity}</strong>,
+    },
+    {
+      title: "สถานะ",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => (
+        <Tag color={status === "available" ? "green" : status === "borrowed" ? "red" : "gray"}>
+          {status === "available" ? "พร้อมใช้งาน" : status === "borrowed" ? "ถูกยืม" : "ไม่พร้อมใช้งาน"}
+        </Tag>
+      ),
+    },
+    {
+      title: "การดำเนินการ",
+      key: "action",
+      render: (_, record) => (
+        <Button
+          type="primary"
+          icon={<CheckOutlined />}
+          disabled={record.status !== "available" || record.quantity <= 0}
+          onClick={() => handleBorrow(record.id)}
+        >
+          ยืม
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <Card className="borrow-container">
+      <Title level={2}>📦 ยืมอุปกรณ์</Title>
+      {loading ? <Spin size="large" /> : <Table columns={columns} dataSource={equipment} rowKey="id" />}
+    </Card>
+  );
+};
 
 export default BorrowEquipment;

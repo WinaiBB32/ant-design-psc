@@ -1,59 +1,96 @@
 import { useEffect, useState } from "react";
-import { Table, Button, message, Card, Tag } from "antd";
-import { getBorrowedLoans, confirmReturn } from "../services/api";
-import { getRole } from "../services/auth";
+import axios from "axios";
+import { Table, Button, message, Card, Typography, Spin, Tag } from "antd";
+import { CheckOutlined } from "@ant-design/icons";
 
-function ReturnManagement() {
-    const [loans, setLoans] = useState([]);
-    const role = getRole();
 
-    useEffect(() => {
-        async function fetchData() {
-            const borrowedLoans = await getBorrowedLoans();
-            setLoans(borrowedLoans);
-        }
-        fetchData();
-    }, []);
+const { Title } = Typography;
 
-    async function handleReturn(id) {
-        await confirmReturn(id);
-        message.success("Equipment returned!");
-        setLoans(loans.filter(loan => loan.id !== id));
+const ReturnManagement = () => {
+  const [loans, setLoans] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchBorrowedEquipment();
+  }, []);
+
+  const fetchBorrowedEquipment = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userID");
+
+      if (!token || !userId) {
+        message.warning("กรุณาเข้าสู่ระบบ");
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get(`http://localhost:3307/api/loans/borrowed/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setLoans(response.data);
+    } catch (error) {
+      message.error("❌ ไม่สามารถโหลดข้อมูลอุปกรณ์ที่ยืมได้",error);
     }
+    setLoading(false);
+  };
 
-    const columns = [
-        { title: "Equipment Name", dataIndex: "equipment_name" },
-        { title: "Borrower", dataIndex: "borrower_name" },
-        { title: "Borrow Date", dataIndex: "borrow_date" },
-        { 
-            title: "Status", 
-            dataIndex: "status",
-            render: (status) => <Tag color="red">{status}</Tag>
-        },
-        {
-            title: "Actions",
-            render: (_, record) => (
-                <Button type="primary" onClick={() => handleReturn(record.id)}>
-                    Confirm Return
-                </Button>
-            ),
-        },
-    ];
+  const handleReturn = async (loanId, equipmentId) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `http://localhost:3307/api/loans/return/${loanId}`,
+        { equipmentId }, // ✅ ส่งค่า equipmentId ไปเพื่อเพิ่ม quantity
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-    return (
-        <div>
-            <h2>Return Management</h2>
-            {role === "admin" || role === "staff" ? (
-                <Card title="Borrowed Equipment">
-                    <Table columns={columns} dataSource={loans} rowKey="id" pagination={{ pageSize: 5 }} />
-                </Card>
-            ) : (
-                <Card>
-                    <p>You do not have permission to manage returns.</p>
-                </Card>
-            )}
-        </div>
-    );
-}
+      message.success("✅ คืนอุปกรณ์สำเร็จ!");
+      fetchBorrowedEquipment();
+    } catch (error) {
+      message.error("❌ เกิดข้อผิดพลาดในการคืนอุปกรณ์",error);
+    }
+  };
+
+  const columns = [
+    {
+      title: "ชื่ออุปกรณ์",
+      dataIndex: "equipment_name",
+      key: "equipment_name",
+    },
+    {
+      title: "วันที่ยืม",
+      dataIndex: "borrow_date",
+      key: "borrow_date",
+    },
+    {
+      title: "สถานะ",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => (
+        <Tag color={status === "borrowed" ? "blue" : "green"}>
+          {status === "borrowed" ? "กำลังใช้งาน" : "คืนแล้ว"}
+        </Tag>
+      ),
+    },
+    {
+      title: "การดำเนินการ",
+      key: "action",
+      render: (_, record) =>
+        record.status === "borrowed" && (
+          <Button type="primary" icon={<CheckOutlined />} onClick={() => handleReturn(record.id, record.equipment_id)}>
+            คืน
+          </Button>
+        ),
+    },
+  ];
+
+  return (
+    <Card className="return-container">
+      <Title level={2}>📦 คืนอุปกรณ์</Title>
+      {loading ? <Spin size="large" /> : <Table columns={columns} dataSource={loans} rowKey="id" />}
+    </Card>
+  );
+};
 
 export default ReturnManagement;
